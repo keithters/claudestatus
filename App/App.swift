@@ -1,10 +1,23 @@
 import SwiftUI
+import AppKit
 
 @main
 struct ClaudeStatusApp: App {
+    private static let launchTime = Date()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    NSWorkspace.shared.open(url)
+                    // If we were spawned specifically to handle this URL (widget tap),
+                    // exit instead of showing our first-launch window.
+                    if Date().timeIntervalSince(Self.launchTime) < 1.5 {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
         }
         .windowResizability(.contentSize)
     }

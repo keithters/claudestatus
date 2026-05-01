@@ -255,9 +255,15 @@ struct LargeView: View {
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
             Spacer()
-            Text("status.claude.com")
-                .font(.system(size: 9, weight: .medium))
+            Link(destination: URL(string: "https://status.claude.com")!) {
+                HStack(spacing: 3) {
+                    Text("status.claude.com")
+                        .font(.system(size: 9, weight: .medium))
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 8, weight: .semibold))
+                }
                 .foregroundStyle(.secondary)
+            }
         }
     }
 
