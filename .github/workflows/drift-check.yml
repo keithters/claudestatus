@@ -1,0 +1,123 @@
+name: Schema drift check
+
+on:
+  schedule:
+    - cron: '0 13 1 * *'   # 1st of each month, 13:00 UTC (≈ 9am ET in EDT)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live JSON
+        run: |
+          curl -sf https://status.claude.com/api/v2/summary.json   -o summary.json
+          curl -sf https://status.claude.com/api/v2/incidents.json -o incidents.json
+
+      - name: Detect drift
+        id: drift
+        run: |
+          set -euo pipefail
+
+          # The vocabulary the widget handles today. If you add cases in
+          # Shared/Palette.swift (Palette.indicator / Palette.component) or
+          # Shared/Models.swift (Incident.isResolved), update these in lockstep.
+          known_indicators=(none minor major critical maintenance)
+          known_components=(operational degraded_performance partial_outage major_outage under_maintenance)
+          known_resolved=(resolved postmortem completed)
+          known_active=(investigating identified monitoring scheduled in_progress verifying)
+
+          contains() {
+              local v="$1"; shift
+              local x
+              for x in "$@"; do [[ "$x" == "$v" ]] && return 0; done
+              return 1
+          }
+
+          drift=""
+
+          # 1) Required (non-optional) fields the Codable structs depend on
+          for path in '.status.indicator' '.status.description' '.components' '.page'; do
+              if ! jq -e "$path" summary.json >/dev/null 2>&1; then
+                  drift+="- summary.json missing required field: \`$path\`"$'\n'
+              fi
+          done
+
+          # 2) Indicator + impact value drift
+          while IFS= read -r v; do
+              [ -z "$v" ] && continue
+              contains "$v" "${known_indicators[@]}" || \
+                  drift+="- new indicator/impact value: \`$v\` → add a case in \`Palette.indicator()\` in \`Shared/Palette.swift\`"$'\n'
+          done < <(
+              {
+                  jq -r '.status.indicator // empty' summary.json
+                  jq -r '.incidents[].impact // empty' incidents.json
+              } | sort -u
+          )
+
+          # 3) Component status value drift
+          while IFS= read -r v; do
+              [ -z "$v" ] && continue
+              contains "$v" "${known_components[@]}" || \
+                  drift+="- new component.status value: \`$v\` → add a case in \`Palette.component()\` in \`Shared/Palette.swift\`"$'\n'
+          done < <(jq -r '.components[].status // empty' summary.json | sort -u)
+
+          # 4) Incident.status drift — must be in resolved-set or a known active state
+          while IFS= read -r v; do
+              [ -z "$v" ] && continue
+              if ! contains "$v" "${known_resolved[@]}" && ! contains "$v" "${known_active[@]}"; then
+                  drift+="- new incident.status value: \`$v\` → review \`Incident.isResolved\` in \`Shared/Models.swift\`"$'\n'
+              fi
+          done < <(jq -r '.incidents[].status // empty' incidents.json | sort -u)
+
+          if [ -n "$drift" ]; then
+              echo "DRIFT DETECTED:"
+              printf '%s' "$drift"
+              {
+                  echo "found=true"
+                  echo "body<<DRIFT_EOF"
+                  printf '%s' "$drift"
+                  echo "DRIFT_EOF"
+              } >> "$GITHUB_OUTPUT"
+          else
+              echo "no drift"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open issue
+        if: steps.drift.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --state open --search 'Schema drift in:title' --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+              echo "An open Schema drift issue already exists — skipping."
+              exit 0
+          fi
+
+          {
+              echo "The monthly drift check found values in the live status.claude.com JSON that the widget does not handle. Update the relevant Swift file(s) so the next decode + render is correct."
+              echo
+              echo "## Findings"
+              echo
+              printf '%s' "${{ steps.drift.outputs.body }}"
+              echo
+              echo "## Where to update"
+              echo
+              echo "- \`Shared/Palette.swift\` — \`Palette.indicator()\`, \`Palette.component()\`"
+              echo "- \`Shared/Models.swift\` — \`Incident.isResolved\`"
+              echo "- \`.github/workflows/drift-check.yml\` — the matching \`known_*\` arrays at the top of \"Detect drift\""
+              echo
+              echo "Detected by run [\`${{ github.run_id }}\`](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+          } > /tmp/issue.md
+
+          gh issue create \
+              --title "Schema drift: status.claude.com" \
+              --body-file /tmp/issue.md
