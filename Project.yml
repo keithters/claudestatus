@@ -1,0 +1,67 @@
+name: ClaudeStatus
+options:
+  bundleIdPrefix: local.claudestatus
+  deploymentTarget:
+    macOS: "14.0"
+  generateEmptyDirectories: true
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  ClaudeStatus:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes: ["*.entitlements", "*.plist"]
+      - path: Shared
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Status
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.claudestatus
+        PRODUCT_NAME: ClaudeStatus
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        CODE_SIGN_ENTITLEMENTS: App/App.entitlements
+    dependencies:
+      - target: ClaudeStatusWidget
+        embed: true
+        codeSign: true
+
+  ClaudeStatusWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: WidgetExt
+        excludes: ["*.entitlements", "*.plist"]
+      - path: Shared
+    info:
+      path: WidgetExt/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Status Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.claudestatus.widget
+        PRODUCT_NAME: ClaudeStatusWidget
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        CODE_SIGN_ENTITLEMENTS: WidgetExt/Widget.entitlements
+        SKIP_INSTALL: YES

@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode build output
+build/
+DerivedData/
+
+# XcodeGen-generated project (regenerated from Project.yml)
+ClaudeStatus.xcodeproj/
+
+# Generated Info.plist files (regenerated from Project.yml)
+App/Info.plist
+WidgetExt/Info.plist
+
+# Xcode user data (in case .xcodeproj is ever committed)
+xcuserdata/
+*.xcuserstate
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
