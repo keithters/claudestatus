@@ -42,6 +42,30 @@ cp -R build/Build/Products/Release/ClaudeStatus.app /Applications/
 open /Applications/ClaudeStatus.app
 ```
 
+## Releasing (maintainer)
+
+`./release.sh` builds with a Developer ID signature, submits to Apple's notary service, staples the ticket, and re-zips the result. The script does preflight checks and prints what's missing if setup is incomplete.
+
+One-time setup:
+
+1. Install a **Developer ID Application** certificate (Xcode → Settings → Accounts → Manage Certificates → + → "Developer ID Application").
+2. Generate an app-specific password at [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → App-Specific Passwords.
+3. Store the notarization credentials in your keychain:
+
+   ```sh
+   xcrun notarytool store-credentials "claude-status-notary" \
+       --apple-id "you@example.com" \
+       --team-id "ABCD123456" \
+       --password "xxxx-xxxx-xxxx-xxxx"
+   ```
+
+Per release:
+
+```sh
+TEAM_ID=ABCD123456 VERSION=1.0.1 ./release.sh
+gh release create v1.0.1 /tmp/ClaudeStatus.app.zip --title v1.0.1 --notes "Notarized release."
+```
+
 ## Layout
 
 - `App/` — containing macOS app (first-launch view)
