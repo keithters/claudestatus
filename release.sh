@@ -85,6 +85,7 @@ xcodebuild \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$IDENTITY" \
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
     OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
     -quiet
 
